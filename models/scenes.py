@@ -390,7 +390,7 @@ class CrashScene(Scene):
     PHASE_JOKE   = 2
     PHASE_DONE   = 3
 
-    PHASE_BSOD_DURATION  = 10000
+    PHASE_BSOD_DURATION  = 30000
     PHASE_STORY_DURATION = 5000
     PHASE_JOKE_DURATION  = 2000
 
@@ -419,12 +419,34 @@ class CrashScene(Scene):
             "ЭТА ИГРА — БОЛЬШЕ НЕ ИГРА.",
         ]
 
+        user = game.get_system_name()
+
         self.bsod_lines = [
             "Ваш компьютер столкнулся с проблемой и должен быть перезагружен.",
-            "Мы собираем данные об ошибке...",
+            "Мы собираем данные об ошибке, а затем выполним перезагрузку.",
             "",
-            "STOP CODE: BLIND_SPOT_TRAP",
-            f"Ошибка вызвана: {game.get_system_name().upper()}",
+            f"STOP CODE: {random.choice(['BLIND_SPOT_TRAP', 'EYE_LOST', 'PET_NOT_FOUND', 'MEMORY_CORRUPTED', 'TRAP_CLOSED'])}",
+            f"WHAT FAILED: {random.choice(['eye.sys', 'pets.dll', 'blindspot.exe', 'remember.sys'])}",
+            "",
+            f"Процесс: BlindSpot.exe",
+            f"Пользователь: {user}",
+            f"Владелец сессии: {user.upper()}",
+            "",
+            "Стек вызовов:",
+            f"  0x{random.randint(0x10000000, 0xFFFFFFFF):016X}  eye!Eye::Laugh+0x1A",
+            f"  0x{random.randint(0x10000000, 0xFFFFFFFF):016X}  eye!Eye::TrapPlayer+0x42",
+            f"  0x{random.randint(0x10000000, 0xFFFFFFFF):016X}  pets!Pet::RememberName+0x88",
+            f"  0x{random.randint(0x10000000, 0xFFFFFFFF):016X}  blindspot!Crash+0xFF",
+            "",
+            "Адрес памяти:",
+            f"  0x{random.randint(0x10000000, 0xFFFFFFFF):08X}",
+            f"  0x{random.randint(0x10000000, 0xFFFFFFFF):08X}",
+            f"  0x{random.randint(0x10000000, 0xFFFFFFFF):08X}",
+            "",
+            "Дамп памяти сохранён:",
+            f"  C:\\Windows\\Minidump\\MEMORY.DMP",
+            f"  C:\\Users\\{user}\\AppData\\Local\\Temp\\blindspot.dmp",
+            "",
             f"Номер ошибки: 0x{random.randint(0x1000, 0xFFFF):04X}",
         ]
 
@@ -483,32 +505,50 @@ class CrashScene(Scene):
         W, H = self.fs_size
         surf.fill((0, 0, 170))
 
-        # ":(" — огромный, слева сверху
-        sad = self.font_sad.render(":(", True, WHITE)
-        surf.blit(sad, (W * 0.08, H * 0.10))
+        # ":(" — поменьше, чтобы влезло
+        sad = pygame.font.SysFont("Consolas", 100, bold=True).render(":(", True, WHITE)
+        surf.blit(sad, (int(W * 0.07), int(H * 0.04)))
 
-        # основной текст — под смайликом
-        y = int(H * 0.42)
+        # два шрифта: обычный и мелкий для hex
+        font_main  = pygame.font.SysFont("Consolas", 18)
+        font_small = pygame.font.SysFont("Consolas", 16)
+
+        y = int(H * 0.22)
+        left = int(W * 0.07)
+
         for line in self.bsod_lines:
-            if line:
-                txt = self.font_bsod.render(line, True, WHITE)
-                surf.blit(txt, (int(W * 0.08), y))
-            y += 42
+            if line == "":
+                y += 10
+                continue
+
+            # hex-строки — мелким и голубоватым
+            if "0x" in line:
+                font = font_small
+                color = (200, 200, 255)
+            else:
+                font = font_main
+                color = WHITE
+
+            txt = font.render(line, True, color)
+            surf.blit(txt, (left, y))
+            y += 22
 
         # прогресс-бар внизу
         progress = 1.0 - (self.timer / self.PHASE_BSOD_DURATION)
-        bar_x = int(W * 0.08)
-        bar_y = int(H * 0.88)
+        progress = min(progress * 1.1, 0.92)  # застревает на 92%
+
+        bar_x = int(W * 0.07)
+        bar_y = int(H * 0.90)
         bar_w = int(W * 0.55)
-        bar_h = 26
+        bar_h = 22
 
         pygame.draw.rect(surf, WHITE, (bar_x, bar_y, bar_w, bar_h), 3)
         pygame.draw.rect(surf, WHITE,
-                         (bar_x + 4, bar_y + 4,
-                          int((bar_w - 8) * progress), bar_h - 8))
+                        (bar_x + 4, bar_y + 4,
+                        int((bar_w - 8) * progress), bar_h - 8))
 
-        pct = self.font_small.render(f"{int(progress * 100)}%", True, WHITE)
-        surf.blit(pct, (bar_x + bar_w + 30, bar_y))
+        pct = font_main.render(f"{int(progress * 100)}%", True, WHITE)
+        surf.blit(pct, (bar_x + bar_w + 20, bar_y))
 
     # ---------- ФАЗА 2: текст ловушки ----------
     def _draw_story(self, game, surf):
@@ -538,12 +578,6 @@ class CrashScene(Scene):
                 surf.blit(txt, (int(W * 0.10), y))
                 y += 44
             y += 30
-
-        # мигающая надпись
-        if (self.blink // 400) % 2 == 0:
-            warn_font = pygame.font.SysFont("Consolas", 40, bold=True)
-            warn = warn_font.render(">>> НЕ ЗАКРЫВАЙ ИГРУ <<<", True, (255, 50, 50))
-            surf.blit(warn, warn.get_rect(center=(W // 2, int(H * 0.85))))
 
     # ---------- ФАЗА 3: шутка ----------
     def _draw_joke(self, game, surf):
