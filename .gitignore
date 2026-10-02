@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+venv/
+.venv/
+save_*.json
+.idea/
+.vscode/
+*.log
